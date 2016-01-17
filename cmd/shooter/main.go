@@ -23,7 +23,7 @@ func main() {
 			continue
 		}
 		filesNum := len(files)
-		fmt.Printf("Found %d subtitles\n", filesNum)
+		fmt.Printf("Found %d subtitles for %s\n", filesNum, filename)
 		chs := make(chan error, filesNum)
 		for i := range files {
 			go func(i int) {
