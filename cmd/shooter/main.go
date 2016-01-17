@@ -22,17 +22,22 @@ func main() {
 			fmt.Println("[ERROR]", err)
 			continue
 		}
-		chs := make(chan error, len(files))
+		filesNum := len(files)
+		fmt.Printf("Found %d subtitles\n", filesNum)
+		chs := make(chan error, filesNum)
 		for i := range files {
 			go func(i int) {
-				chs <- files[i].Fetch()
+				fn, err := files[i].Fetch()
+				if err != nil {
+					fmt.Printf("[ERROR] %s %v\n", fn, err)
+				} else {
+					fmt.Printf("[DONE] %s\n", fn)
+				}
+				chs <- err
 			}(i)
 		}
-		for i := 0; i < len(files); i++ {
+		for i := 0; i < filesNum; i++ {
 			err = <-chs
-			if err != nil {
-				fmt.Println(err)
-			}
 		}
 	}
 }

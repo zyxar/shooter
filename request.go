@@ -57,10 +57,10 @@ func (this SubtitleFile) String() string {
 	return string(v)
 }
 
-func (this *SubtitleFile) Fetch() error {
+func (this *SubtitleFile) Fetch() (filename string, err error) {
 	req, err := http.NewRequest("GET", this.Link, nil)
 	if err != nil {
-		return err
+		return
 	}
 	req.Header.Add("Origin", "http://shooter.cn/")
 	req.Header.Add("User-Agent", userAgent)
@@ -68,18 +68,19 @@ func (this *SubtitleFile) Fetch() error {
 	req.Header.Add("Referer", "http://shooter.cn/")
 	resp, err := routine(req)
 	if err != nil {
-		return err
+		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 > 3 {
-		return errors.New(resp.Status)
+		err = errors.New(resp.Status)
+		return
 	}
 
-	var filename string
 	splits := strings.Split(resp.Header.Get("Content-Disposition"), "filename=")
 	if len(splits) > 1 {
 		if filepath.Ext(splits[1])[1:] != this.Ext {
-			return errors.New("filename extension not matched.")
+			err = errors.New("filename extension not matched.")
+			return
 		}
 		filename = splits[1]
 		if this.FilmName == nil {
@@ -90,18 +91,16 @@ func (this *SubtitleFile) Fetch() error {
 	} else if this.FilmName != nil {
 		filename = *this.FilmName + "." + this.Ext
 	} else {
-		return errors.New("filename not determined.")
+		err = errors.New("filename not determined.")
+		return
 	}
 
 	var saveFile = func(filename string) error {
 		if _, err := os.Lstat(filename); os.IsNotExist(err) {
 			if file, err := os.Create(filename); err == nil {
-				fmt.Printf("Saving to %s...", filename)
 				if _, err = io.Copy(file, resp.Body); err != nil {
-					fmt.Printf("\t[%v]\n", err)
 					return err
 				}
-				fmt.Println("\t[OK]")
 				return nil
 			} else {
 				return err
@@ -116,7 +115,7 @@ func (this *SubtitleFile) Fetch() error {
 		err = saveFile(filename)
 		i++
 	}
-	return err
+	return
 }
 
 // [
