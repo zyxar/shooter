@@ -1,6 +1,7 @@
 package shooter
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -140,6 +141,8 @@ func (this *SubtitleFile) Fetch() error {
 //     ]
 //   }
 // ]
+// or
+// 255
 func Query(filehash, filename string) ([]SubtitleFile, error) {
 	v := url.Values{}
 	v.Set("filehash", filehash)
@@ -162,10 +165,16 @@ func Query(filehash, filename string) ([]SubtitleFile, error) {
 	if resp.StatusCode/100 > 3 {
 		return nil, errors.New(resp.Status)
 	}
-	var desc []subtitleDescription
-	decoder := json.NewDecoder(resp.Body)
-	if err = decoder.Decode(&desc); err != nil {
+	rd := bufio.NewReader(resp.Body)
+	if b, err := rd.Peek(1); err != nil {
+		return nil, err
+	} else if b[0] == 255 {
 		return nil, errors.New("subtitles not found.")
+	}
+	var desc []subtitleDescription
+	decoder := json.NewDecoder(rd)
+	if err = decoder.Decode(&desc); err != nil {
+		return nil, err
 	}
 	subfiles := make([]SubtitleFile, 0, len(desc))
 	filmNameLen := len(filename) - len(filepath.Ext(filename))
