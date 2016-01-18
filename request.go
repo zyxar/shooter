@@ -58,6 +58,9 @@ func (this SubtitleFile) String() string {
 }
 
 func (this *SubtitleFile) Fetch() (filename string, err error) {
+	if this.FilmName != nil {
+		filename = *this.FilmName + "." + this.Ext
+	}
 	req, err := http.NewRequest("GET", this.Link, nil)
 	if err != nil {
 		return
@@ -88,9 +91,7 @@ func (this *SubtitleFile) Fetch() (filename string, err error) {
 			filmName := splits[1][:filmNameLen]
 			this.FilmName = &filmName
 		}
-	} else if this.FilmName != nil {
-		filename = *this.FilmName + "." + this.Ext
-	} else {
+	} else if this.FilmName == nil {
 		err = errors.New("filename not determined.")
 		return
 	}
