@@ -6,38 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-	"time"
 )
 
 const (
 	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36"
 )
 
-var (
-	defaultConn struct {
-		*http.Client
-		sync.Mutex
-		timeout time.Duration
-	}
-	timeoutErr    = errors.New("request time out.")
-	timeoutMillis = 5000 * time.Millisecond
-)
-
 func init() {
-	defaultConn.timeout = timeoutMillis
-	defaultConn.Client = &http.Client{
-		Transport: &http.Transport{
-			Dial:  (&net.Dialer{Timeout: defaultConn.timeout}).Dial,
-			Proxy: http.ProxyFromEnvironment,
-		},
-	}
 }
 
 type subtitleDescription struct {
@@ -61,7 +41,7 @@ func (this *SubtitleFile) Fetch() (filename string, err error) {
 	if this.FilmName != nil {
 		filename = *this.FilmName + "." + this.Ext
 	}
-	req, err := http.NewRequest("GET", this.Link, nil)
+	req, err := http.NewRequest("GET", strings.Replace(this.Link, "https://", "http://", 1), nil)
 	if err != nil {
 		return
 	}
@@ -69,7 +49,7 @@ func (this *SubtitleFile) Fetch() (filename string, err error) {
 	req.Header.Add("User-Agent", userAgent)
 	req.Header.Add("Accept", "*/*")
 	req.Header.Add("Referer", "http://shooter.cn/")
-	resp, err := routine(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return
 	}
@@ -157,7 +137,7 @@ func Query(filehash, filename string) ([]SubtitleFile, error) {
 	req.Header.Add("User-Agent", userAgent)
 	req.Header.Add("Accept", "*/*")
 	req.Header.Add("Referer", "http://shooter.cn/")
-	resp, err := routine(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -186,27 +166,4 @@ func Query(filehash, filename string) ([]SubtitleFile, error) {
 		}
 	}
 	return subfiles, nil
-}
-
-func routine(req *http.Request) (*http.Response, error) {
-	timeout := false
-retry:
-	defaultConn.Lock()
-	timer := time.AfterFunc(defaultConn.timeout, func() {
-		defaultConn.Client.Transport.(*http.Transport).CancelRequest(req)
-		timeout = true
-	})
-	resp, err := defaultConn.Do(req)
-	if timer != nil {
-		timer.Stop()
-	}
-	defaultConn.Unlock()
-	if err == io.EOF && !timeout {
-		// fmt.Fprintln(os.Stderr, "[RETRY]")
-		goto retry
-	}
-	if timeout {
-		err = timeoutErr
-	}
-	return resp, err
 }
