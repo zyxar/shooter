@@ -35,6 +35,14 @@ func (this SubtitleFile) String() string {
 }
 
 func (this *SubtitleFile) Fetch(dirname string) (filename string, err error) {
+	stat, err := os.Stat(dirname)
+	if err != nil {
+		return
+	}
+	if !stat.IsDir() {
+		err = fmt.Errorf("%s is not a directory", dirname)
+		return
+	}
 	if this.FilmName != nil {
 		filename = *this.FilmName + "." + this.Ext
 	}
@@ -74,7 +82,7 @@ func (this *SubtitleFile) Fetch(dirname string) (filename string, err error) {
 	}
 
 	var saveFile = func(filename string) error {
-		if len(dirname) > 0 {
+		if dirname != "" {
 			filename = filepath.Join(dirname, filename)
 		}
 		if _, err := os.Lstat(filename); os.IsNotExist(err) {

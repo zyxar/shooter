@@ -8,6 +8,12 @@ import (
 	"github.com/zyxar/shooter"
 )
 
+var dirname string
+
+func init() {
+	flag.StringVar(&dirname, "dir", "", "set target directory")
+}
+
 func main() {
 	flag.Parse()
 	for _, fullpath := range flag.Args() {
@@ -16,12 +22,17 @@ func main() {
 			fmt.Println("[ERROR]", err)
 			continue
 		}
-		fullpath, err = filepath.Abs(fullpath)
-		if err != nil {
-			fmt.Println("[ERROR]", err)
-			continue
+		var filename string
+		if dirname == "" {
+			fullpath, err = filepath.Abs(fullpath)
+			if err != nil {
+				fmt.Println("[ERROR]", err)
+				continue
+			}
+			dirname, filename = filepath.Split(fullpath)
+		} else {
+			filename = filepath.Base(fullpath)
 		}
-		dirname, filename := filepath.Split(fullpath)
 		files, err := shooter.Query(filehash, filename)
 		if err != nil {
 			fmt.Println("[ERROR]", err)
