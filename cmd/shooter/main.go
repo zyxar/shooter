@@ -16,7 +16,12 @@ func main() {
 			fmt.Println("[ERROR]", err)
 			continue
 		}
-		filename := filepath.Base(fullpath)
+		fullpath, err = filepath.Abs(fullpath)
+		if err != nil {
+			fmt.Println("[ERROR]", err)
+			continue
+		}
+		dirname, filename := filepath.Split(fullpath)
 		files, err := shooter.Query(filehash, filename)
 		if err != nil {
 			fmt.Println("[ERROR]", err)
@@ -27,7 +32,7 @@ func main() {
 		chs := make(chan error, filesNum)
 		for i := range files {
 			go func(i int) {
-				fn, err := files[i].Fetch()
+				fn, err := files[i].Fetch(dirname)
 				if err != nil {
 					fmt.Printf("[ERROR] %s %v\n", fn, err)
 				} else {

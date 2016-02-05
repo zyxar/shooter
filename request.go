@@ -17,9 +17,6 @@ const (
 	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36"
 )
 
-func init() {
-}
-
 type subtitleDescription struct {
 	Desc  string
 	Delay int
@@ -37,7 +34,7 @@ func (this SubtitleFile) String() string {
 	return string(v)
 }
 
-func (this *SubtitleFile) Fetch() (filename string, err error) {
+func (this *SubtitleFile) Fetch(dirname string) (filename string, err error) {
 	if this.FilmName != nil {
 		filename = *this.FilmName + "." + this.Ext
 	}
@@ -77,6 +74,9 @@ func (this *SubtitleFile) Fetch() (filename string, err error) {
 	}
 
 	var saveFile = func(filename string) error {
+		if len(dirname) > 0 {
+			filename = filepath.Join(dirname, filename)
+		}
 		if _, err := os.Lstat(filename); os.IsNotExist(err) {
 			if file, err := os.Create(filename); err == nil {
 				if _, err = io.Copy(file, resp.Body); err != nil {
@@ -89,6 +89,7 @@ func (this *SubtitleFile) Fetch() (filename string, err error) {
 		}
 		return os.ErrExist
 	}
+
 	err = saveFile(filename)
 	i := 1
 	for err == os.ErrExist {
