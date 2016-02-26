@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// FileHash reads a file and calculates its hash.
+// The file should be larger than 16 KB (reasonable for a normal film file).
+// The hash can be used to query the subtitles in SHOOTER later.
 func FileHash(name string) (string, error) {
 	file, err := os.Open(name)
 	if err != nil {

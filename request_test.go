@@ -1,7 +1,7 @@
 package shooter
 
 import (
-	"fmt"
+	"os"
 	"testing"
 )
 
@@ -15,13 +15,17 @@ func TestRequest(t *testing.T) {
 	chs := make(chan error, len(files))
 	for i := range files {
 		go func(i int) {
-			chs <- files[i].Fetch()
+			var err error
+			var name string
+			name, err = files[i].Fetch(".")
+			os.Remove(name)
+			chs <- err
 		}(i)
 	}
 	for i := 0; i < len(files); i++ {
 		err = <-chs
 		if err != nil {
-			fmt.Println(err)
+			t.Error(err)
 		}
 	}
 }

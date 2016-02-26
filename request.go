@@ -23,18 +23,21 @@ type subtitleDescription struct {
 	Files []SubtitleFile
 }
 
+// SubtitleFile is part of response of a SHOOTER query.
 type SubtitleFile struct {
 	Ext      string
 	Link     string
 	FilmName *string `json:"-"`
 }
 
-func (this SubtitleFile) String() string {
-	v, _ := json.MarshalIndent(this, "", "  ")
+func (id SubtitleFile) String() string {
+	v, _ := json.MarshalIndent(id, "", "  ")
 	return string(v)
 }
 
-func (this *SubtitleFile) Fetch(dirname string) (filename string, err error) {
+// Fetch fetches subtitle file from SHOOTER and saves it in directory (dirname).
+// It returns saved filename on success, or error on failure.
+func (id *SubtitleFile) Fetch(dirname string) (filename string, err error) {
 	stat, err := os.Stat(dirname)
 	if err != nil {
 		return
@@ -43,10 +46,10 @@ func (this *SubtitleFile) Fetch(dirname string) (filename string, err error) {
 		err = fmt.Errorf("%s is not a directory", dirname)
 		return
 	}
-	if this.FilmName != nil {
-		filename = *this.FilmName + "." + this.Ext
+	if id.FilmName != nil {
+		filename = *id.FilmName + "." + id.Ext
 	}
-	req, err := http.NewRequest("GET", strings.Replace(this.Link, "https://", "http://", 1), nil)
+	req, err := http.NewRequest("GET", strings.Replace(id.Link, "https://", "http://", 1), nil)
 	if err != nil {
 		return
 	}
@@ -66,48 +69,49 @@ func (this *SubtitleFile) Fetch(dirname string) (filename string, err error) {
 
 	splits := strings.Split(resp.Header.Get("Content-Disposition"), "filename=")
 	if len(splits) > 1 {
-		if filepath.Ext(splits[1])[1:] != this.Ext {
-			err = errors.New("filename extension not matched.")
+		if filepath.Ext(splits[1])[1:] != id.Ext {
+			err = errors.New("filename extension not matched")
 			return
 		}
 		filename = splits[1]
-		if this.FilmName == nil {
-			filmNameLen := len(splits[1]) - len(this.Ext)
+		if id.FilmName == nil {
+			filmNameLen := len(splits[1]) - len(id.Ext)
 			filmName := splits[1][:filmNameLen]
-			this.FilmName = &filmName
+			id.FilmName = &filmName
 		}
-	} else if this.FilmName == nil {
-		err = errors.New("filename not determined.")
+	} else if id.FilmName == nil {
+		err = errors.New("filename not determined")
 		return
 	}
 
-	var saveFile = func(filename string) error {
+	var saveFile = func(filename string) (err error) {
 		if dirname != "" {
 			filename = filepath.Join(dirname, filename)
 		}
-		if _, err := os.Lstat(filename); os.IsNotExist(err) {
-			if file, err := os.Create(filename); err == nil {
-				if _, err = io.Copy(file, resp.Body); err != nil {
-					return err
-				}
-				return nil
-			} else {
-				return err
+		var file *os.File
+		if _, err = os.Lstat(filename); os.IsNotExist(err) {
+			if file, err = os.Create(filename); err == nil {
+				_, err = io.Copy(file, resp.Body)
 			}
 		}
-		return os.ErrExist
+		return
 	}
 
 	err = saveFile(filename)
 	i := 1
 	for err == os.ErrExist {
-		filename = fmt.Sprintf("%s-%d.%s", *this.FilmName, i, this.Ext)
+		filename = fmt.Sprintf("%s-%d.%s", *id.FilmName, i, id.Ext)
 		err = saveFile(filename)
 		i++
 	}
 	return
 }
 
+// Query sends a query request to SHOOTER with filehash and filename.
+// It returns a slice of SubtitleFile on success, or error on failure.
+// On failure, the response is a single byte 0xFF.
+// Otherwise, the response is an array of JSON objects like below:
+//
 // [
 //   {
 //     "Desc": "",
@@ -130,8 +134,8 @@ func (this *SubtitleFile) Fetch(dirname string) (filename string, err error) {
 //     ]
 //   }
 // ]
-// or
-// 255
+//
+// The "Files" field are then combined as the return value.
 func Query(filehash, filename string) ([]SubtitleFile, error) {
 	v := url.Values{}
 	v.Set("filehash", filehash)
@@ -158,7 +162,7 @@ func Query(filehash, filename string) ([]SubtitleFile, error) {
 	if b, err := rd.Peek(1); err != nil {
 		return nil, err
 	} else if b[0] == 255 {
-		return nil, errors.New("subtitles not found.")
+		return nil, errors.New("subtitles not found")
 	}
 	var desc []subtitleDescription
 	decoder := json.NewDecoder(rd)
@@ -168,8 +172,8 @@ func Query(filehash, filename string) ([]SubtitleFile, error) {
 	subfiles := make([]SubtitleFile, 0, len(desc))
 	filmNameLen := len(filename) - len(filepath.Ext(filename))
 	filmName := filename[:filmNameLen]
-	for i, _ := range desc {
-		for j, _ := range desc[i].Files {
+	for i := range desc {
+		for j := range desc[i].Files {
 			desc[i].Files[j].FilmName = &filmName
 			subfiles = append(subfiles, desc[i].Files[j])
 		}
