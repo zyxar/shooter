@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/zyxar/shooter"
@@ -12,6 +14,11 @@ var dirname string
 
 func init() {
 	flag.StringVar(&dirname, "dir", "", "set target directory")
+}
+
+type message struct {
+	body io.ReadCloser
+	fn   string
 }
 
 func main() {
@@ -40,20 +47,48 @@ func main() {
 		}
 		filesNum := len(files)
 		fmt.Printf("Found %d subtitles for %s\n", filesNum, filename)
-		chs := make(chan error, filesNum)
+		msgChan := make(chan *message, filesNum)
 		for i := range files {
 			go func(i int) {
-				fn, err := files[i].Fetch(dirname)
+				body, fn, err := files[i].FetchContent()
 				if err != nil {
-					fmt.Printf("[ERROR] %s %v\n", fn, err)
+					fmt.Printf("[ERROR] %s-%d %v\n", fn, i, err)
+					msgChan <- nil
 				} else {
-					fmt.Printf("[DONE] %s\n", fn)
+					msgChan <- &message{body, fn}
 				}
-				chs <- err
 			}(i)
 		}
+		j := 1
+		var saveFile = func(body io.ReadCloser, fn string) {
+			ext := filepath.Ext(fn)
+			if dirname != "" {
+				fn = filepath.Join(dirname, fn)
+			}
+			filename := fn
+			fn = fn[:len(fn)-len(ext)]
+			var file *os.File
+			var err error
+		retry:
+			if _, err = os.Lstat(filename); os.IsNotExist(err) {
+				if file, err = os.Create(filename); err == nil {
+					_, err = io.Copy(file, body)
+					body.Close()
+					file.Close()
+					fmt.Printf("[DONE] %s\n", filename)
+				}
+			} else {
+				filename = fmt.Sprintf("%s-%d%s", fn, j, ext)
+				j++
+				goto retry
+			}
+			return
+		}
 		for i := 0; i < filesNum; i++ {
-			err = <-chs
+			msg := <-msgChan
+			if msg != nil {
+				saveFile(msg.body, msg.fn)
+			}
 		}
 	}
 }
