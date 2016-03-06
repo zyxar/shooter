@@ -35,17 +35,10 @@ func (id SubtitleFile) String() string {
 	return string(v)
 }
 
-// Fetch fetches subtitle file from SHOOTER and saves it in directory (dirname).
-// It returns saved filename on success, or error on failure.
-func (id *SubtitleFile) Fetch(dirname string) (filename string, err error) {
-	stat, err := os.Stat(dirname)
-	if err != nil {
-		return
-	}
-	if !stat.IsDir() {
-		err = fmt.Errorf("%s is not a directory", dirname)
-		return
-	}
+// Fetch fetches subtitle file from SHOOTER
+// It returns file content, and filename on success, or error on failure.
+// content should be closed after using.
+func (id *SubtitleFile) FetchContent() (content io.ReadCloser, filename string, err error) {
 	if id.FilmName != nil {
 		filename = *id.FilmName + "." + id.Ext
 	}
@@ -61,7 +54,6 @@ func (id *SubtitleFile) Fetch(dirname string) (filename string, err error) {
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode/100 > 3 {
 		err = errors.New(resp.Status)
 		return
@@ -83,7 +75,27 @@ func (id *SubtitleFile) Fetch(dirname string) (filename string, err error) {
 		err = errors.New("filename not determined")
 		return
 	}
+	content = resp.Body
+	return
+}
 
+// Fetch fetches subtitle file from SHOOTER and saves it in directory (dirname).
+// It returns saved filename on success, or error on failure.
+func (id *SubtitleFile) Fetch(dirname string) (filename string, err error) {
+	stat, err := os.Stat(dirname)
+	if err != nil {
+		return
+	}
+	if !stat.IsDir() {
+		err = fmt.Errorf("%s is not a directory", dirname)
+		return
+	}
+	var body io.ReadCloser
+	body, filename, err = id.FetchContent()
+	if err != nil {
+		return
+	}
+	defer body.Close()
 	var saveFile = func(filename string) (err error) {
 		if dirname != "" {
 			filename = filepath.Join(dirname, filename)
@@ -91,7 +103,7 @@ func (id *SubtitleFile) Fetch(dirname string) (filename string, err error) {
 		var file *os.File
 		if _, err = os.Lstat(filename); os.IsNotExist(err) {
 			if file, err = os.Create(filename); err == nil {
-				_, err = io.Copy(file, resp.Body)
+				_, err = io.Copy(file, body)
 			}
 		}
 		return
