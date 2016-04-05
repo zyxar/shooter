@@ -76,6 +76,8 @@ func main() {
 					body.Close()
 					file.Close()
 					fmt.Printf("[DONE] %s\n", filename)
+				} else {
+					fmt.Println("[ERROR]", err)
 				}
 			} else {
 				filename = fmt.Sprintf("%s-%d%s", fn, j, ext)
