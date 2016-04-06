@@ -14,6 +14,10 @@ var dirname string
 
 func init() {
 	flag.StringVar(&dirname, "dir", "", "set target directory")
+	flag.Usage = func() {
+		fmt.Println("Usage: shooter [OPTION] film_file")
+		flag.PrintDefaults()
+	}
 }
 
 type message struct {
@@ -23,6 +27,10 @@ type message struct {
 
 func main() {
 	flag.Parse()
+	if flag.NArg() == 0 {
+		flag.Usage()
+		os.Exit(1)
+	}
 	for _, fullpath := range flag.Args() {
 		filehash, err := shooter.FileHash(fullpath)
 		if err != nil {
