@@ -14,7 +14,15 @@ import (
 )
 
 const (
-	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36"
+	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36"
+)
+
+var (
+	errNotFound             = errors.New("subtitles not found")
+	errExtNotMatch          = errors.New("filename extension not matched")
+	errFilenameNotFound     = errors.New("filename not determined")
+	errFileSizeInsufficient = errors.New("File size too small.")
+	errPartialRead          = errors.New("Partial read")
 )
 
 type subtitleDescription struct {
@@ -62,7 +70,7 @@ func (id *SubtitleFile) FetchContent() (content io.ReadCloser, filename string, 
 	splits := strings.Split(resp.Header.Get("Content-Disposition"), "filename=")
 	if len(splits) > 1 {
 		if filepath.Ext(splits[1])[1:] != id.Ext {
-			err = errors.New("filename extension not matched")
+			err = errExtNotMatch
 			return
 		}
 		filename = splits[1]
@@ -72,7 +80,7 @@ func (id *SubtitleFile) FetchContent() (content io.ReadCloser, filename string, 
 			id.FilmName = &filmName
 		}
 	} else if id.FilmName == nil {
-		err = errors.New("filename not determined")
+		err = errFilenameNotFound
 		return
 	}
 	content = resp.Body
@@ -174,7 +182,7 @@ func Query(filehash, filename string) ([]SubtitleFile, error) {
 	if b, err := rd.Peek(1); err != nil {
 		return nil, err
 	} else if b[0] == 255 {
-		return nil, errors.New("subtitles not found")
+		return nil, errNotFound
 	}
 	var desc []subtitleDescription
 	decoder := json.NewDecoder(rd)
